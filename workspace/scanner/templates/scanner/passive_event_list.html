@@ -1,0 +1,140 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}被动探测{% endblock %}
+
+{% block toolbar %}
+<div class="btn-group btn-group-sm me-2 shadow-sm">
+    {% if sniffer_running %}
+        <div class="btn btn-success border-0 px-3 d-flex align-items-center">
+            <span class="status-dot animate-pulse me-2"></span> 服务运行中
+        </div>
+        <form method="post" action="{% url 'passive_sniffer_control' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="stop">
+            <button type="submit" class="btn btn-danger border-0 px-3"><i class="fas fa-stop me-1"></i> 停止监听</button>
+        </form>
+    {% else %}
+        <div class="btn btn-secondary border-0 px-3 d-flex align-items-center">
+            <span class="status-dot bg-white bg-opacity-25 me-2"></span> 服务已停止
+        </div>
+        <form method="post" action="{% url 'passive_sniffer_control' %}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="start">
+            <button type="submit" class="btn btn-primary border-0 px-3"><i class="fas fa-play me-1"></i> 开启监听</button>
+        </form>
+    {% endif %}
+</div>
+<a href="{% url 'passive_import' %}" class="btn btn-sm btn-outline-primary border-color"><i class="fas fa-file-import me-1"></i> 数据导入</a>
+{% endblock %}
+
+{% block content %}
+<style>
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background-color: #fff; }
+    .animate-pulse { animation: pulse 2s infinite; background-color: #fff; }
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+</style>
+
+<form class="row g-3 mb-4 align-items-end" method="get">
+    <div class="col-md-3">
+        <label class="small text-muted mb-2">协议类型</label>
+        <select class="form-select form-select-sm border-color bg-dark bg-opacity-50" name="type" onchange="this.form.submit()">
+            <option value="">全部类型</option>
+            <option value="DNS" {% if request.GET.type == 'DNS' %}selected{% endif %}>DNS 域名查询</option>
+            <option value="HTTP" {% if request.GET.type == 'HTTP' %}selected{% endif %}>HTTP 流量</option>
+            <option value="TLS" {% if request.GET.type == 'TLS' %}selected{% endif %}>TLS/SSL 握手</option>
+            <option value="LOG" {% if request.GET.type == 'LOG' %}selected{% endif %}>通用 IP 日志</option>
+        </select>
+    </div>
+    <div class="col-md-7">
+        <label class="small text-muted mb-2">内容搜索</label>
+        <div class="input-group input-group-sm">
+            <span class="input-group-text border-color bg-dark text-muted"><i class="fas fa-search"></i></span>
+            <input class="form-control border-color bg-dark bg-opacity-50" name="q" placeholder="搜索 IP / 域名 / 路径关键字..." value="{{ request.GET.q|default:'' }}">
+        </div>
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-sm btn-primary w-100" type="submit">立即查询</button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-dark">
+            <tr class="smaller text-uppercase text-muted">
+                <th class="ps-4">类型</th>
+                <th>来源</th>
+                <th>关联资产</th>
+                <th>通信链路 (源 -> 目的)</th>
+                <th>发现内容 (域名/URL)</th>
+                <th class="text-center">频次</th>
+                <th class="text-end pe-4">最后活跃时间</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in events %}
+            <tr>
+                <td class="ps-4">
+                    <span class="badge bg-opacity-10 {% if e.event_type == 'DNS' %}bg-info text-info{% elif e.event_type == 'HTTP' %}bg-success text-success{% elif e.event_type == 'TLS' %}bg-warning text-warning{% else %}bg-secondary text-secondary{% endif %}">
+                        {{ e.event_type }}
+                    </span>
+                </td>
+                <td><small class="text-muted fw-medium">{{ e.source|default:"external" }}</small></td>
+                <td>
+                    {% if e.asset %}
+                        <a href="{% url 'asset_detail' e.asset.id %}" class="text-decoration-none fw-bold"><i class="fas fa-server me-1 small"></i>{{ e.asset.ip_address }}</a>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="d-flex align-items-center smaller">
+                        <span class="text-white-50">{{ e.src_ip|default:"*" }}</span>
+                        <i class="fas fa-long-arrow-right mx-2 text-muted"></i>
+                        <span class="text-white-50">{{ e.dst_ip|default:"*" }}</span>
+                        {% if e.dst_port %}<span class="ms-1 text-primary">:{{ e.dst_port }}</span>{% endif %}
+                    </div>
+                </td>
+                <td>
+                    <div class="text-truncate text-muted smaller" style="max-width: 350px;" title="{{ e.url|default:e.hostname }}">
+                        {% if e.url %}
+                            <code class="text-info">{{ e.url }}</code>
+                        {% else %}
+                            <span class="text-white-50">{{ e.hostname|default:"-" }}</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="text-center"><span class="badge bg-dark border border-color text-muted">{{ e.count }}</span></td>
+                <td class="text-end pe-4"><small class="text-muted">{{ e.last_seen|date:"Y-m-d H:i:s" }}</small></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center py-5 text-muted">暂无被动探测数据</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .border-color { border-color: rgba(255, 255, 255, 0.08) !important; }
+    .smaller { font-size: 0.75rem; }
+    .bg-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+</style>
+
+    {% if is_paginated %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&type={{ request.GET.type }}&q={{ request.GET.q }}">上一页</a></li>
+            {% endif %}
+            <li class="page-item disabled"><a class="page-link" href="#">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</a></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&type={{ request.GET.type }}&q={{ request.GET.q }}">下一页</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

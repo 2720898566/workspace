@@ -1,0 +1,29 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}导入被动探测数据{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">文件导入</div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">数据来源</label>
+                        <input class="form-control" name="source" placeholder="例如 nginx / dnsmasq / zeek / upload">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">文件</label>
+                        <input type="file" class="form-control" name="file" accept=".json,.jsonl,.csv" required>
+                        <div class="form-text">支持 JSON / JSONL / CSV。字段示例：event_type, asset_ip, src_ip, dst_ip, dst_port, hostname, url, method, status_code, user_agent</div>
+                    </div>
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-file-import"></i> 导入</button>
+                    <a class="btn btn-secondary" href="{% url 'passive_event_list' %}">返回</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

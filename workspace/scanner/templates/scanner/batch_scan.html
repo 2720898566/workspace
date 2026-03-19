@@ -1,0 +1,213 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}批量扫描{% endblock %}
+
+{% block extra_css %}
+<style>
+    .batch-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .target-textarea {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 14px;
+        min-height: 300px;
+    }
+    .target-stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 10px;
+    }
+    .target-stat {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .target-stat .count {
+        font-weight: bold;
+        font-size: 18px;
+    }
+    .preset-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .preset-card {
+        padding: 15px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .preset-card:hover {
+        border-color: #0d6efd;
+    }
+    .preset-card.selected {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    .preset-card input {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="batch-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0"><i class="fas fa-layer-group me-2"></i>批量扫描</h1>
+                <p class="text-muted mb-0">批量导入目标，一键发起多个扫描任务</p>
+            </div>
+            <a href="{% url 'task_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list me-2"></i>任务列表
+            </a>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" action="{% url 'batch_scan_create' %}" id="batchForm">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-bullseye me-2"></i>扫描目标</h5>
+                </div>
+                <div class="card-body">
+                    <div class="target-stats">
+                        <div class="target-stat">
+                            <span class="text-muted">IP地址:</span>
+                            <span class="count text-primary" id="ip-count">0</span>
+                        </div>
+                        <div class="target-stat">
+                            <span class="text-muted">域名:</span>
+                            <span class="count text-info" id="domain-count">0</span>
+                        </div>
+                        <div class="target-stat">
+                            <span class="text-muted">CIDR:</span>
+                            <span class="count text-warning" id="cidr-count">0</span>
+                        </div>
+                        <div class="target-stat">
+                            <span class="text-muted">总计:</span>
+                            <span class="count" id="total-count">0</span>
+                        </div>
+                    </div>
+                    <textarea 
+                        class="form-control target-textarea" 
+                        id="target_text" 
+                        name="target_text" 
+                        rows="12" 
+                        placeholder="每行一个目标，支持以下格式：&#10;192.168.1.1          # 单个IP&#10;192.168.1.0/24      # CIDR格式&#10;example.com          # 域名&#10;192.168.1.1-10       # IP范围&#10;192.168.1.1:8080    # 带端口"></textarea>
+                    <div class="form-text">
+                        支持格式：单个IP、CIDR网段、域名、IP范围(192.168.1.1-10)、带端口(192.168.1.1:8080)
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>扫描配置</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">扫描预设</label>
+                            <select class="form-select" name="scan_preset">
+                                <option value="quick" selected>快速扫描 (Top 100)</option>
+                                <option value="normal">标准扫描 (Top 1000)</option>
+                                <option value="deep">深度扫描 (全端口)</option>
+                                <option value="service">服务探测</option>
+                                <option value="vuln">漏洞扫描</option>
+                            </select>
+                            <div class="form-text">选择扫描深度和覆盖范围</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted">将创建 </span>
+                            <span class="fw-bold text-primary" id="task-count">0</span>
+                            <span class="text-muted"> 个扫描任务</span>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            <i class="fas fa-rocket me-2"></i>开始批量扫描
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('target_text');
+    const ipCount = document.getElementById('ip-count');
+    const domainCount = document.getElementById('domain-count');
+    const cidrCount = document.getElementById('cidr-count');
+    const totalCount = document.getElementById('total-count');
+    const taskCount = document.getElementById('task-count');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    const presetCards = document.querySelectorAll('.preset-card');
+    presetCards.forEach(card => {
+        card.addEventListener('click', function() {
+            presetCards.forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+    
+    function parseTargets(text) {
+        const lines = text.split('\n');
+        let ips = 0, domains = 0, cidrs = 0;
+        
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line || line.startsWith('#')) return;
+            
+            const target = line.split(/\s+/)[0];
+            
+            if (target.includes('/')) {
+                cidrs++;
+            } else if (/^[\d\.]+$/.test(target)) {
+                ips++;
+            } else if (/^[a-zA-Z0-9]/.test(target)) {
+                domains++;
+            } else {
+                ips++;
+            }
+        });
+        
+        return { ips, domains, cidrs, total: ips + domains + cidrs };
+    }
+    
+    function updateStats() {
+        const text = textarea.value;
+        const stats = parseTargets(text);
+        
+        ipCount.textContent = stats.ips;
+        domainCount.textContent = stats.domains;
+        cidrCount.textContent = stats.cidrs;
+        totalCount.textContent = stats.total;
+        taskCount.textContent = stats.total;
+        
+        submitBtn.disabled = stats.total === 0;
+    }
+    
+    textarea.addEventListener('input', updateStats);
+    updateStats();
+});
+</script>
+{% endblock %}

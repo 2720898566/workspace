@@ -1,0 +1,91 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}{% if object %}编辑资产{% else %}新增资产{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>资产表单</span>
+                <a href="{% url 'asset_list' %}" class="btn btn-sm btn-secondary">返回列表</a>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">IP 地址</label>
+                            <input type="text" name="ip_address" class="form-control" value="{{ form.ip_address.value|default:'' }}" {% if object %}readonly{% endif %} required>
+                            <div class="form-text">资产的唯一标识 IP</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">主机名</label>
+                            {{ form.hostname }}
+                            <input type="text" name="hostname" class="form-control" value="{{ form.hostname.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">MAC 地址</label>
+                            <input type="text" name="mac_address" class="form-control" value="{{ form.mac_address.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">厂商</label>
+                            <input type="text" name="vendor" class="form-control" value="{{ form.vendor.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">操作系统</label>
+                            <input type="text" name="os_info" class="form-control" value="{{ form.os_info.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">资产类型</label>
+                            <select name="category" class="form-select">
+                                <option value="">---------</option>
+                                {% for cat in form.category.field.queryset %}
+                                    <option value="{{ cat.pk }}" {% if form.category.value|add:"0" == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">重要程度</label>
+                            <select name="importance" class="form-select">
+                                <option value="0" {% if form.importance.value == 0 %}selected{% endif %}>普通</option>
+                                <option value="1" {% if form.importance.value == 1 %}selected{% endif %}>重要</option>
+                                <option value="2" {% if form.importance.value == 2 %}selected{% endif %}>关键核心</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">所属业务系统</label>
+                            <input type="text" name="business_system" class="form-control" value="{{ form.business_system.value|default:'' }}">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">归属部门</label>
+                            <input type="text" name="department" class="form-control" value="{{ form.department.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">所属网段</label>
+                            <input type="text" name="network_segment" class="form-control" value="{{ form.network_segment.value|default:'' }}" placeholder="e.g. 192.168.1.0/24">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary px-4">保存资产信息</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

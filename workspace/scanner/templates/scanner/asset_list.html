@@ -1,0 +1,283 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}资产台账{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
+        <div class="d-flex">
+            <a href="{% url 'asset_create' %}" class="btn btn-primary me-2"><i class="fas fa-plus"></i> 手动新增资产</a>
+            <a href="{% url 'asset_export' %}" class="btn btn-secondary me-2"><i class="fas fa-file-export"></i> 导出资产清单 (CSV)</a>
+            <button class="btn btn-danger" id="batch-delete-btn" disabled onclick="batchDelete()"><i class="fas fa-trash"></i> 批量删除</button>
+        </div>
+        <form class="d-flex" method="get">
+            <input class="form-control me-2" type="search" name="q" placeholder="搜索... (支持 field:value 和 regex: 语法)" value="{{ request.GET.q }}">
+            <button class="btn btn-outline-primary" type="submit">搜索</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mb-4 shadow-sm border-0 bg-glass">
+    <div class="card-header border-bottom border-color"><i class="fas fa-filter me-2 text-primary"></i>智能资产筛选</div>
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-end" id="assetFilterForm">
+            <div class="col-md-2">
+                <label class="small text-muted mb-2 fw-medium">资产类型分类</label>
+                <select name="category" class="form-select form-select-sm border-color bg-dark bg-opacity-50" onchange="this.form.submit()">
+                    <option value="">全部类型</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted mb-2 fw-medium">资产重要程度</label>
+                <select name="importance" class="form-select form-select-sm border-color bg-dark bg-opacity-50" onchange="this.form.submit()">
+                    <option value="">全部级别</option>
+                    <option value="0" {% if request.GET.importance == '0' %}selected{% endif %}>普通</option>
+                    <option value="1" {% if request.GET.importance == '1' %}selected{% endif %}>重要</option>
+                    <option value="2" {% if request.GET.importance == '2' %}selected{% endif %}>关键核心</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted mb-2 fw-medium">关联业务系统</label>
+                <input type="text" name="business_system" class="form-control form-control-sm border-color bg-dark bg-opacity-50" placeholder="搜索系统..." value="{{ request.GET.business_system }}">
+            </div>
+            <div class="col-md-2">
+                <label class="small text-muted mb-2 fw-medium">所属逻辑网段</label>
+                <input type="text" name="network_segment" class="form-control form-control-sm border-color bg-dark bg-opacity-50" placeholder="192.168.1.0/24" value="{{ request.GET.network_segment }}">
+            </div>
+            <div class="col-md-3">
+                <label class="small text-muted mb-2 fw-medium">快速搜索</label>
+                <div class="input-group input-group-sm">
+                    <input type="text" name="q" class="form-control border-color bg-dark bg-opacity-50" placeholder="IP/主机名/厂商..." value="{{ request.GET.q }}">
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+            <div class="col-md-1 text-end">
+                <a href="{% url 'asset_list' %}" class="btn btn-sm btn-link text-muted p-0 mb-1">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle border-color mb-0" style="border-collapse: separate; border-spacing: 0 8px;">
+        <thead>
+            <tr class="text-muted smaller text-uppercase">
+                <th class="ps-3" style="width: 40px;">
+                    <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                </th>
+                <th class="ps-4">资产 IP / 状态</th>
+                <th>告警</th>
+                <th>发现方式</th>
+                <th>重要程度</th>
+                <th>资产分类</th>
+                <th>主机名 / 厂商</th>
+                <th>所属网段</th>
+                <th>业务系统</th>
+                <th class="text-center">开放端口</th>
+                <th class="text-end pe-4">管理操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr class="card-row">
+                <td class="ps-3">
+                    <input type="checkbox" class="asset-checkbox" value="{{ asset.id }}" onchange="updateBatchButton()">
+                </td>
+                <td class="ps-4">
+                    <div class="d-flex align-items-center">
+                        <div class="status-indicator me-3 {% if asset.is_up %}bg-success{% else %}bg-danger{% endif %}" style="width: 8px; height: 8px; border-radius: 50%;"></div>
+                        <div>
+                            <div class="fw-bold text-white d-flex align-items-center">
+                                {{ asset.ip_address }}
+                                <button class="btn btn-link btn-xs p-0 ms-2 text-muted copy-btn" data-clipboard-text="{{ asset.ip_address }}" title="复制 IP">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted smaller">{% if asset.is_up %}在线{% else %}离线{% endif %}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    {% with asset.alerts.all as asset_alerts %}
+                    {% if asset_alerts.exists %}
+                        {% with asset_alerts|slice:":3" as recent_alerts %}
+                        <div class="dropdown">
+                            <span class="badge bg-danger bg-opacity-75" style="cursor: pointer;" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-exclamation-triangle me-1"></i>{{ asset_alerts.count }}
+                            </span>
+                            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" style="min-width: 280px; font-size: 0.8rem;">
+                                {% for alert in recent_alerts %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{% url 'alert_list' %}?q={{ asset.ip_address }}">
+                                        <span class="badge bg-{% if alert.severity == 'CRITICAL' %}danger{% elif alert.severity == 'HIGH' %}warning{% elif alert.severity == 'MEDIUM' %}info{% else %}secondary{% endif %} me-1">{{ alert.get_severity_display }}</span>
+                                        <span class="text-truncate d-inline-block" style="max-width: 180px;">{{ alert.title }}</span>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                                {% if asset_alerts.count > 3 %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-center text-info" href="{% url 'alert_list' %}?q={{ asset.ip_address }}">查看全部 {{ asset_alerts.count }} 条告警</a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        {% endwith %}
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                <td>
+                    {% if asset.discovery_method == 'ACTIVE' %}
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25"><i class="fas fa-radar me-1"></i>主动扫描</span>
+                    {% elif asset.discovery_method == 'PASSIVE' %}
+                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25"><i class="fas fa-tower-broadcast me-1"></i>被动探测</span>
+                    {% else %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25"><i class="fas fa-hand-pointer me-1"></i>手动录入</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if asset.importance == 2 %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">核心</span>
+                    {% elif asset.importance == 1 %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">重要</span>
+                    {% else %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">普通</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
+                        <i class="fas fa-tag me-1 small"></i>{{ asset.category.name|default:"未分类" }}
+                    </span>
+                </td>
+                <td>
+                    <div class="text-white-50 small fw-medium">{{ asset.hostname|default:"-" }}</div>
+                    <div class="text-muted smaller">{{ asset.vendor|default:"-" }}</div>
+                </td>
+                <td><code class="smaller">{{ asset.network_segment|default:"-" }}</code></td>
+                <td><span class="text-muted small">{{ asset.business_system|default:"-" }}</span></td>
+                <td class="text-center">
+                    <span class="badge bg-info bg-opacity-10 text-info">{{ asset.open_ports_count }}</span>
+                </td>
+                <td class="text-end pe-4">
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'asset_detail' asset.id %}" class="btn btn-dark border-color" title="查看详情"><i class="fas fa-eye text-info"></i></a>
+                        <a href="{% url 'asset_update' asset.id %}" class="btn btn-dark border-color" title="编辑资产"><i class="fas fa-pen-to-square text-warning"></i></a>
+                        <form method="post" action="{% url 'asset_delete' asset.id %}" class="d-inline" onsubmit="return confirm('确定要删除此资产吗？')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-dark border-color" title="移除资产"><i class="fas fa-trash-can text-danger"></i></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" class="text-center py-5 text-muted">暂无符合条件的资产数据</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .card-row {
+        background-color: rgba(255, 255, 255, 0.02);
+        transition: all 0.2s ease;
+    }
+    .card-row:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        transform: scale(1.002);
+    }
+    .smaller { font-size: 0.75rem; }
+    .fs-7 { font-size: 0.85rem; }
+    .border-color { border-color: rgba(255, 255, 255, 0.08) !important; }
+    .btn-xs { padding: 0.1rem 0.3rem; font-size: 0.75rem; }
+</style>
+
+<script>
+    // 全选/取消全选
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('select-all');
+        const checkboxes = document.querySelectorAll('.asset-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = selectAll.checked;
+        });
+        updateBatchButton();
+    }
+    
+    // 更新批量按钮状态
+    function updateBatchButton() {
+        const checkboxes = document.querySelectorAll('.asset-checkbox:checked');
+        const btn = document.getElementById('batch-delete-btn');
+        if (checkboxes.length > 0) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-trash"></i> 批量删除 (${checkboxes.length})`;
+        } else {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-trash"></i> 批量删除';
+        }
+    }
+    
+    // 批量删除
+    function batchDelete() {
+        const checkboxes = document.querySelectorAll('.asset-checkbox:checked');
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (ids.length === 0) return;
+        
+        if (!confirm(`确定要删除选中的 ${ids.length} 个资产吗？此操作不可恢复！`)) {
+            return;
+        }
+        
+        fetch('{% url "asset_batch_delete" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`成功删除 ${data.deleted_count} 个资产`);
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除请求失败');
+        });
+    }
+    
+    // 简单的点击复制功能
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const text = this.getAttribute('data-clipboard-text');
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = this.querySelector('i');
+                icon.className = 'fas fa-check text-success';
+                setTimeout(() => { icon.className = 'far fa-copy'; }, 1000);
+            });
+        });
+    });
+</script>
+    
+    {% if is_paginated %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a></li>
+            {% endif %}
+            <li class="page-item disabled"><a class="page-link" href="#">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</a></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,448 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}首页{% endblock %}
+
+{% block content %}
+<!-- 实时状态面板 -->
+<div class="row g-4">
+    <div class="col-md-3">
+        <a href="{% url 'asset_list' %}" class="text-decoration-none h-100 d-block">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+                <div class="card-body p-4 position-relative">
+                    <div class="position-absolute end-0 top-0 p-3 opacity-25">
+                        <i class="fas fa-server fa-4x"></i>
+                    </div>
+                    <h6 class="text-white text-opacity-75 mb-2 fw-semibold">资产存活状态</h6>
+                    <h2 class="text-white fw-bold mb-0 display-5">{{ online_assets }} <small class="fs-6 opacity-75">/ {{ total_assets }}</small></h2>
+                    <div class="mt-3 small text-white text-opacity-75">
+                        <i class="fas fa-arrow-up me-1"></i> 在线率: {{ online_assets|default:0|divisibleby:total_assets|yesno:"是,否" }}
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'alert_list' %}" class="text-decoration-none h-100 d-block">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);">
+                <div class="card-body p-4 position-relative">
+                    <div class="position-absolute end-0 top-0 p-3 opacity-25">
+                        <i class="fas fa-shield-virus fa-4x"></i>
+                    </div>
+                    <h6 class="text-white text-opacity-75 mb-2 fw-semibold">高危风险资产</h6>
+                    <h2 class="text-white fw-bold mb-0 display-5">{{ high_risk_vulns }}</h2>
+                    <div class="mt-3 small text-white text-opacity-75">
+                        <i class="fas fa-triangle-exclamation me-1"></i> 需立即响应
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #198754 0%, #146c43 100%);">
+            <div class="card-body p-4 position-relative">
+                <div class="position-absolute end-0 top-0 p-3 opacity-25">
+                    <i class="fas fa-plus-circle fa-4x"></i>
+                </div>
+                <h6 class="text-white text-opacity-75 mb-2 fw-semibold">今日新增发现</h6>
+                <h2 class="text-white fw-bold mb-0 display-5">{{ new_assets_today }}</h2>
+                <div class="mt-3 small text-white text-opacity-75">
+                    <i class="fas fa-clock me-1"></i> 24h 内发现
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <a href="{% url 'alert_list' %}?read_status=unread" class="text-decoration-none h-100 d-block">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                <div class="card-body p-4 position-relative">
+                    <div class="position-absolute end-0 top-0 p-3 opacity-25 text-dark">
+                        <i class="fas fa-bell fa-4x"></i>
+                    </div>
+                    <h6 class="text-dark text-opacity-75 mb-2 fw-semibold">未读系统告警</h6>
+                    <h2 class="text-dark fw-bold mb-0 display-5">{{ unread_alerts_count }}</h2>
+                    <div class="mt-3 small text-dark text-opacity-75">
+                        <i class="fas fa-bolt me-1"></i> 点击查看详情
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="row mt-4 g-4">
+    <!-- 左侧主图表 -->
+    <div class="col-md-8">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-chart-line me-2 text-danger"></i>全网风险趋势分析 (7D)</span>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#">导出图片</a></li>
+                        <li><a class="dropdown-item" href="#">刷新数据</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="trendChart" style="height: 350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧滚动列表 -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-danger bg-opacity-10 text-danger d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-bolt me-2"></i>最新实时告警</span>
+                <a href="{% url 'alert_list' %}" class="btn btn-xs btn-outline-danger border-0 py-0">全部</a>
+            </div>
+            <div class="card-body p-0 overflow-auto" style="max-height: 400px;">
+                <div class="list-group list-group-flush">
+                    {% for alert in recent_alerts %}
+                    <div class="list-group-item bg-transparent border-bottom border-color py-3 px-4">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <h6 class="mb-0 text-white fs-7 fw-bold">{{ alert.title }}</h6>
+                            <span class="badge bg-{% if alert.severity == 'CRITICAL' %}dark{% elif alert.severity == 'HIGH' %}danger{% elif alert.severity == 'MEDIUM' %}warning{% else %}info{% endif %} ms-2">
+                                {{ alert.get_severity_display }}
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-2 line-clamp-2">{{ alert.content }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted smaller"><i class="far fa-clock me-1"></i>{{ alert.timestamp|timesince }}前</span>
+                            <form method="post" action="{% url 'alert_mark_read' alert.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-link btn-xs p-0 text-primary smaller text-decoration-none">已读</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-5 text-center text-muted">
+                        <i class="fas fa-shield-check fa-3x mb-3 opacity-25"></i>
+                        <p class="mb-0">暂无未处理告警</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4 g-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-chart-pie me-2 text-primary"></i>资产类型分布</div>
+            <div class="card-body"><div id="catChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-microchip me-2 text-success"></i>操作系统统计</div>
+            <div class="card-body"><div id="osChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-network-wired me-2 text-info"></i>网段资产分布</div>
+            <div class="card-body"><div id="netChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-cube me-2 text-warning"></i>核心服务 Top 10</div>
+            <div class="card-body"><div id="serviceChart" style="height: 250px;"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOP 统计区域 -->
+<div class="row mt-4 g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-bug me-2 text-danger"></i>TOP 10 高危资产</div>
+            <div class="card-body"><div id="topVulnChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-portal me-2 text-primary"></i>TOP 10 开放端口</div>
+            <div class="card-body"><div id="topPortChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4 g-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-building me-2 text-secondary"></i>TOP 10 厂商</div>
+            <div class="card-body"><div id="topVendorChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><i class="fas fa-sitemap me-2 text-success"></i>TOP 10 业务系统</div>
+            <div class="card-body"><div id="topBizChart" style="height: 300px;"></div></div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-history me-2 text-info"></i>最近资产变更日志</span>
+                <a href="{% url 'asset_list' %}" class="btn btn-sm btn-link text-muted">管理资产</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 bg-transparent">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="ps-4">时间</th>
+                                <th>关联 IP</th>
+                                <th>变更类型</th>
+                                <th>描述详情</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_changes %}
+                            <tr>
+                                <td class="ps-4"><small class="text-muted">{{ log.timestamp|date:"m-d H:i" }}</small></td>
+                                <td><a href="{% url 'asset_detail' log.asset.id %}" class="text-decoration-none fw-bold">{{ log.asset.ip_address }}</a></td>
+                                <td>
+                                    <span class="badge bg-opacity-10 {% if log.change_type == '新增资产' %}bg-success text-success{% elif log.change_type == '下线' %}bg-danger text-danger{% else %}bg-info text-info{% endif %}">
+                                        {{ log.change_type }}
+                                    </span>
+                                </td>
+                                <td><small class="text-muted">{{ log.description }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 ECharts -->
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<script>
+    // 风险趋势图
+    var trendChart = echarts.init(document.getElementById('trendChart'), 'dark');
+    var trendDays = [{% for item in risk_trend %}'{{ item.day }}',{% endfor %}];
+    var trendCounts = [{% for item in risk_trend %}{{ item.count }},{% endfor %}];
+    trendChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: trendDays, boundaryGap: false },
+        yAxis: { type: 'value', splitLine: { lineStyle: { color: '#333' } } },
+        series: [{
+            name: '发现风险数',
+            data: trendCounts,
+            type: 'line',
+            smooth: true,
+            areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(220, 53, 69, 0.5)' },
+                    { offset: 1, color: 'rgba(220, 53, 69, 0)' }
+                ])
+            },
+            lineStyle: { color: '#dc3545', width: 3 },
+            itemStyle: { color: '#dc3545' }
+        }]
+    });
+
+    // 资产类型分布图
+    var catChart = echarts.init(document.getElementById('catChart'), 'dark');
+    catChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        legend: { bottom: 0, left: 'center', orient: 'horizontal', padding: [10, 20, 0, 20] },
+        series: [{
+            name: '资产类型',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 10, borderColor: '#1e1e1e', borderWidth: 2 },
+            label: { show: false, position: 'center' },
+            emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+            labelLine: { show: false },
+            data: [{% for item in cat_stats %}{value: {{ item.count }}, name: '{{ item.category__name|default:"未知" }}'},{% endfor %}]
+        }]
+    });
+
+    // 操作系统分布图
+    var osChart = echarts.init(document.getElementById('osChart'), 'dark');
+    var osData = [
+        {% for item in os_stats %}
+        {value: {{ item.count }}, name: '{{ item.os_info|default:"Unknown" }}'},
+        {% endfor %}
+    ];
+    osChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item' },
+        series: [{
+            type: 'pie',
+            radius: '50%',
+            data: osData,
+            itemStyle: { borderColor: '#1e1e1e', borderWidth: 2 },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 10,
+                    shadowOffsetX: 0,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
+            }
+        }]
+    });
+
+    // 操作系统分布图
+    var osChart = echarts.init(document.getElementById('osChart'), 'dark');
+    osChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        legend: { bottom: 0, left: 'center', orient: 'horizontal', padding: [10, 20, 0, 20] },
+        series: [{
+            name: '操作系统',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 10, borderColor: '#1e1e1e', borderWidth: 2 },
+            label: { show: false, position: 'center' },
+            emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+            labelLine: { show: false },
+            data: [{% for item in os_stats %}{value: {{ item.count }}, name: '{{ item.os_info|default:"Unknown" }}'},{% endfor %}]
+        }]
+    });
+
+    // 核心服务图
+    var serviceChart = echarts.init(document.getElementById('serviceChart'), 'dark');
+    var serviceNames = [{% for item in service_stats %}'{{ item.service_name|default:"Unknown" }}',{% endfor %}];
+    var serviceCounts = [{% for item in service_stats %}{{ item.count }},{% endfor %}];
+    serviceChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: serviceNames,
+            axisLabel: { rotate: 45, interval: 0 }
+        },
+        yAxis: { type: 'value' },
+        series: [{
+            name: '服务数量',
+            type: 'bar',
+            data: serviceCounts,
+            itemStyle: { color: '#5470c6' }
+        }]
+    });
+    
+    // 网段资产分布图
+    var netChart = echarts.init(document.getElementById('netChart'), 'dark');
+    netChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        legend: { bottom: 0, left: 'center', orient: 'horizontal', padding: [10, 20, 0, 20] },
+        series: [{
+            name: '网段资产',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 10, borderColor: '#1e1e1e', borderWidth: 2 },
+            label: { show: false, position: 'center' },
+            emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+            labelLine: { show: false },
+            data: [{% for item in net_stats %}{value: {{ item.count }}, name: '{{ item.network_segment|default:"Unknown" }}'},{% endfor %}]
+        }]
+    });
+
+    // 响应式调整
+    window.addEventListener('resize', function() {
+        trendChart.resize();
+        catChart.resize();
+        osChart.resize();
+        netChart.resize();
+        serviceChart.resize();
+    });
+    
+    // TOP 10 高危资产
+    var topVulnChart = echarts.init(document.getElementById('topVulnChart'), 'dark');
+    topVulnChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: [{% for item in top_vuln_assets %}'{{ item.ip }}',{% endfor %}],
+            axisLabel: { rotate: 45, interval: 0 }
+        },
+        yAxis: { type: 'value', name: '漏洞数' },
+        series: [{
+            name: '漏洞数',
+            type: 'bar',
+            data: [{% for item in top_vuln_assets %}{{ item.count }},{% endfor %}],
+            itemStyle: { color: '#dc3545' }
+        }]
+    });
+    
+    // TOP 10 端口分布
+    var topPortChart = echarts.init(document.getElementById('topPortChart'), 'dark');
+    topPortChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: [{% for item in top_ports %}'{{ item.port_number }}',{% endfor %}],
+            axisLabel: { interval: 0 }
+        },
+        yAxis: { type: 'value', name: '出现次数' },
+        series: [{
+            name: '出现次数',
+            type: 'bar',
+            data: [{% for item in top_ports %}{{ item.count }},{% endfor %}],
+            itemStyle: { color: '#0d6efd' }
+        }]
+    });
+    
+    // TOP 10 厂商分布
+    var topVendorChart = echarts.init(document.getElementById('topVendorChart'), 'dark');
+    topVendorChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: [{% for item in top_vendors %}'{{ item.vendor|default:"Unknown" }}',{% endfor %}],
+            axisLabel: { rotate: 45, interval: 0 }
+        },
+        yAxis: { type: 'value', name: '资产数' },
+        series: [{
+            name: '资产数',
+            type: 'bar',
+            data: [{% for item in top_vendors %}{{ item.count }},{% endfor %}],
+            itemStyle: { color: '#ffc107' }
+        }]
+    });
+    
+    // TOP 10 业务系统
+    var topBizChart = echarts.init(document.getElementById('topBizChart'), 'dark');
+    topBizChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: [{% for item in top_business %}'{{ item.business|default:"Unknown" }}',{% endfor %}],
+            axisLabel: { rotate: 45, interval: 0 }
+        },
+        yAxis: { type: 'value', name: '资产数' },
+        series: [{
+            name: '资产数',
+            type: 'bar',
+            data: [{% for item in top_business %}{{ item.count }},{% endfor %}],
+            itemStyle: { color: '#198754' }
+        }]
+    });
+</script>
+{% endblock %}

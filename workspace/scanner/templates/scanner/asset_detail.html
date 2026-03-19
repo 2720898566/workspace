@@ -1,0 +1,193 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}资产详情: {{ asset.ip_address }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">基本信息</div>
+            <div class="card-body">
+                <p><strong>IP 地址:</strong> {{ asset.ip_address }}</p>
+                <p><strong>重要程度:</strong> 
+                    {% if asset.importance == 2 %}
+                        <span class="badge bg-danger">关键核心</span>
+                    {% elif asset.importance == 1 %}
+                        <span class="badge bg-warning">重要资产</span>
+                    {% else %}
+                        <span class="badge bg-secondary">普通资产</span>
+                    {% endif %}
+                </p>
+                <p><strong>所属网段:</strong> {{ asset.network_segment|default:"-" }}</p>
+                <p><strong>业务系统:</strong> {{ asset.business_system|default:"-" }}</p>
+                <p><strong>归属部门:</strong> {{ asset.department|default:"-" }}</p>
+                <p><strong>主机名:</strong> {{ asset.hostname }}</p>
+                <p><strong>资产类型:</strong> 
+                    {% if asset.category %}
+                        <span class="badge bg-primary">{{ asset.category.name }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">未知</span>
+                    {% endif %}
+                </p>
+                <p><strong>操作系统:</strong> {{ asset.os_info }}</p>
+                <p><strong>厂商:</strong> {{ asset.vendor }}</p>
+                <p><strong>MAC 地址:</strong> {{ asset.mac_address }}</p>
+                <p><strong>最后扫描:</strong> {{ asset.last_scanned|date:"Y-m-d H:i:s" }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-danger-subtle text-danger-emphasis d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-bug me-1"></i> 漏洞与安全风险</span>
+                <span class="badge bg-danger rounded-pill">{{ vulns.count }} 个风险</span>
+            </div>
+            <div class="card-body p-0">
+                {% if vulns %}
+                    <div class="list-group list-group-flush">
+                    {% for vuln in vulns %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                <h6 class="mb-0 fw-bold">{{ vuln.name }}</h6>
+                                <span class="badge bg-{% if vuln.severity == 'CRITICAL' %}dark{% elif vuln.severity == 'HIGH' %}danger{% elif vuln.severity == 'MEDIUM' %}warning{% else %}info{% endif %}">
+                                    {{ vuln.get_severity_display }}
+                                </span>
+                            </div>
+                            <p class="mb-1 small text-muted">{{ vuln.description }}</p>
+                            <div class="mt-2">
+                                <small class="d-block text-success fw-bold"><i class="fas fa-shield-halved me-1"></i> 修复建议：</small>
+                                <small class="text-secondary">{{ vuln.solution }}</small>
+                            </div>
+                            {% if vuln.cve_id %}
+                                <div class="mt-1">
+                                    <span class="badge bg-secondary opacity-75"><i class="fas fa-tag me-1"></i> {{ vuln.cve_id }}</span>
+                                </div>
+                            {% endif %}
+                            {% if vuln.port %}
+                                <div class="mt-1">
+                                    <small class="text-muted"><i class="fas fa-plug me-1"></i> 关联端口: {{ vuln.port.port_number }}/{{ vuln.port.protocol }}</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-4 text-center">
+                        <i class="fas fa-circle-check text-success fa-3x mb-3"></i>
+                        <p class="text-success mb-0">未发现已知漏洞或风险</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">开放端口与服务</div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>端口</th>
+                            <th>协议</th>
+                            <th>状态</th>
+                            <th>服务名称</th>
+                            <th>应用指纹</th>
+                            <th>版本信息</th>
+                            <th>Banner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for port in ports %}
+                        <tr>
+                            <td>{{ port.port_number }}</td>
+                            <td>{{ port.protocol }}</td>
+                            <td><span class="badge bg-success">{{ port.state }}</span></td>
+                            <td>{{ port.service_name }}</td>
+                            <td>
+                                {% if port.app_fingerprint %}
+                                    <span class="badge bg-info text-dark">{{ port.app_fingerprint }}</span>
+                                    {% if port.is_vulnerable_version %}
+                                        <span class="badge bg-danger" title="检测到过时或已知风险版本"><i class="fas fa-triangle-exclamation"></i> 风险版本</span>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ port.service_version }}</td>
+                            <td><code>{{ port.banner }}</code></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6">无开放端口记录</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">资产变更记录</div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for log in change_logs %}
+                    <div class="list-group-item px-0">
+                        <div class="d-flex w-100 justify-content-between">
+                            <span class="badge bg-info mb-1">{{ log.change_type }}</span>
+                            <small class="text-muted">{{ log.timestamp|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <p class="mb-1 small">{{ log.description }}</p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">暂无变更记录</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">被动探测事件</div>
+            <div class="card-body">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>类型</th>
+                            <th>来源</th>
+                            <th>域名/URL</th>
+                            <th>次数</th>
+                            <th>最近</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in passive_events %}
+                        <tr>
+                            <td><span class="badge bg-info">{{ e.event_type }}</span></td>
+                            <td>{{ e.source|default:"-" }}</td>
+                            <td>
+                                {% if e.url %}
+                                    <code>{{ e.url }}</code>
+                                {% else %}
+                                    {{ e.hostname|default:"-" }}
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-secondary">{{ e.count }}</span></td>
+                            <td>{{ e.last_seen|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5">暂无被动探测数据</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <a href="{% url 'passive_event_list' %}" class="btn btn-sm btn-secondary">查看全部</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

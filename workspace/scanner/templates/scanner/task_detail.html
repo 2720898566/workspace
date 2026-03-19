@@ -1,0 +1,62 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}任务详情: {{ task.target }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">任务概览</div>
+            <div class="card-body">
+                <p><strong>目标:</strong> {{ task.target }}</p>
+                <p><strong>类型:</strong> {{ task.get_scan_type_display }}</p>
+                <p><strong>状态:</strong> 
+                    <span class="badge bg-{% if task.status == 'COMPLETED' %}success{% elif task.status == 'FAILED' %}danger{% elif task.status == 'RUNNING' %}primary{% else %}secondary{% endif %}">
+                        {{ task.get_status_display }}
+                    </span>
+                </p>
+                <p><strong>开始时间:</strong> {{ task.created_at|date:"Y-m-d H:i:s" }}</p>
+                <p><strong>结束时间:</strong> {{ task.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</p>
+                {% if task.result_summary %}
+                <div class="mt-3">
+                    <strong>结果摘要:</strong>
+                    <div class="alert alert-{% if task.status == 'FAILED' %}danger{% else %}light border{% endif %} mt-2">
+                        {{ task.result_summary }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'task_list' %}" class="btn btn-sm btn-secondary">返回列表</a>
+                {% if task.status == 'COMPLETED' %}
+                    {% if primary_asset %}
+                    <a href="{% url 'asset_detail' primary_asset.id %}" class="btn btn-sm btn-success">查看资产</a>
+                    {% else %}
+                    <a href="{% url 'asset_list' %}" class="btn btn-sm btn-success">查看资产</a>
+                    {% endif %}
+                {% endif %}
+                {% if task.status == 'FAILED' or task.status == 'COMPLETED' %}
+                <a href="{% url 'task_rescan' task.id %}" class="btn btn-sm btn-success" title="重新扫描" onclick="return confirm('确定要重新扫描此目标吗？')"><i class="fas fa-rotate-right"></i></a>
+                {% endif %}
+                <form method="post" action="{% url 'task_delete' task.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger" title="删除" onclick="return confirm('确定要删除此任务吗？')"><i class="fas fa-xmark"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            {% if primary_asset %}
+                详细结果已合并至 <a href="{% url 'asset_detail' primary_asset.id %}" class="alert-link">资产详情</a>。
+            {% else %}
+                详细结果已合并至 <a href="{% url 'asset_list' %}" class="alert-link">资产列表</a>。
+                请根据目标 IP 在资产管理中查看详细端口和服务信息。
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

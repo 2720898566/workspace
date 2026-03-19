@@ -1,0 +1,69 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}生成报告{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0"><i class="fas fa-file-alt me-2 text-primary"></i>生成扫描报告</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'report_generate' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label">报告类型</label>
+                        <select name="report_type" class="form-select" id="reportType">
+                            <option value="TASK">任务报告</option>
+                            <option value="ASSET">资产报告</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4" id="taskSelectDiv">
+                        <label class="form-label">选择任务</label>
+                        <select name="target_id" class="form-select">
+                            {% for task in tasks %}
+                            <option value="{{ task.id }}">{{ task.target }} - {{ task.get_scan_type_display }} - {{ task.created_at|date:"Y-m-d H:i" }}</option>
+                            {% empty %}
+                            <option value="">暂无完成任务</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">报告格式</label>
+                        <select name="format" class="form-select">
+                            <option value="HTML">HTML (网页)</option>
+                            <option value="JSON">JSON</option>
+                            <option value="CSV">CSV (Excel)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">报告名称 (可选)</label>
+                        <input type="text" name="name" class="form-control" placeholder="留空自动生成">
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">生成报告</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('reportType').addEventListener('change', function() {
+    const taskDiv = document.getElementById('taskSelectDiv');
+    if (this.value === 'TASK') {
+        taskDiv.style.display = 'block';
+    } else {
+        taskDiv.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

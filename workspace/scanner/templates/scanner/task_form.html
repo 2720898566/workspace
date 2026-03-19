@@ -1,0 +1,665 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}创建新任务{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scan-preset-card {
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        background: var(--card-bg);
+    }
+    .scan-preset-card:hover {
+        border-color: rgba(13, 110, 253, 0.5);
+        transform: translateY(-2px);
+    }
+    .scan-preset-card.selected {
+        border-color: var(--accent-color);
+        background: rgba(13, 110, 253, 0.1);
+    }
+    .scan-preset-card .preset-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .nav-tabs .nav-link {
+        color: var(--text-muted);
+        border: none;
+        padding: 1rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .nav-tabs .nav-link:hover {
+        color: #fff;
+        background: rgba(255,255,255,0.05);
+    }
+    .nav-tabs .nav-link.active {
+        color: var(--accent-color);
+        background: transparent;
+        border-bottom: 2px solid var(--accent-color);
+    }
+    .form-control, .form-select {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+    }
+    .form-control:focus, .form-select:focus {
+        background: rgba(255,255,255,0.08);
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    }
+    .form-check-input:checked {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+    .form-check-label {
+        color: var(--text-muted);
+    }
+    .form-text {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+    .section-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .config-item {
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        transition: all 0.2s ease;
+    }
+    .config-item:hover {
+        background: rgba(255,255,255,0.03);
+    }
+    .timing-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: linear-gradient(to right, #198754, #0dcaf0, #fd7e14, #dc3545);
+        outline: none;
+    }
+    .timing-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .preset-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .preset-tag {
+        padding: 0.35rem 0.85rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: rgba(255,255,255,0.08);
+        color: var(--text-muted);
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .preset-tag:hover, .preset-tag.active {
+        background: rgba(13, 110, 253, 0.25);
+        border-color: var(--accent-color);
+        color: #fff;
+        box-shadow: 0 0 12px rgba(13, 110, 253, 0.3);
+    }
+    .preset-tag .preset-icon {
+        font-size: 0.9rem;
+    }
+    .target-preview {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+        background: rgba(0,0,0,0.3);
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        display: none;
+    }
+    .target-preview.valid {
+        display: block;
+        border-left: 3px solid #198754;
+    }
+    .target-preview.invalid {
+        display: block;
+        border-left: 3px solid #dc3545;
+    }
+    .script-category-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .script-category-badge {
+        padding: 0.4rem 0.85rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid var(--border-color);
+        background: rgba(255,255,255,0.05);
+        color: var(--text-muted);
+        display: inline-block;
+    }
+    .script-category-badge:hover {
+        border-color: var(--accent-color);
+        background: rgba(13, 110, 253, 0.15);
+        color: #fff;
+    }
+    .script-category-badge.selected {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: #fff;
+        box-shadow: 0 0 10px rgba(13, 110, 253, 0.4);
+    }
+    .info-tooltip {
+        cursor: help;
+        margin-left: 0.25rem;
+        color: var(--text-muted);
+        transition: color 0.2s ease;
+    }
+    .info-tooltip:hover {
+        color: var(--accent-color);
+    }
+    .form-select option {
+        background: #1a1a1a;
+        color: var(--text-main);
+        padding: 0.5rem;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .scanning-indicator {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-1"><i class="fas fa-plus-circle me-2 text-primary"></i>新建扫描任务</h4>
+            <p class="text-muted mb-0">配置扫描参数，发现网络中的资产和服务</p>
+        </div>
+    </div>
+
+    <form method="post" id="scanForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-transparent border-0 pt-3">
+                        <ul class="nav nav-tabs" id="scanTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button">
+                                    <i class="fas fa-bullseye me-2"></i>扫描目标
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="scan-tab" data-bs-toggle="tab" data-bs-target="#scan" type="button">
+                                    <i class="fas fa-cog me-2"></i>扫描配置
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button">
+                                    <i class="fas fa-sliders me-2"></i>高级选项
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="scanTabsContent">
+                            <div class="tab-pane fade show active" id="basic" role="tabpanel">
+                                <div class="mb-4">
+                                    <label for="id_target" class="form-label fw-semibold">
+                                        扫描目标 <span class="text-danger">*</span>
+                                        <i class="fas fa-info-circle info-tooltip" data-bs-toggle="tooltip" title="支持IP、域名、CIDR网段格式"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-transparent"><i class="fas fa-crosshairs"></i></span>
+                                        <input type="text" class="form-control form-control-lg" id="id_target" name="target" 
+                                               placeholder="例如: 192.168.1.1, 10.0.0.0/24, example.com" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="validateTargetBtn">
+                                            <i class="fas fa-check"></i> 验证
+                                        </button>
+                                    </div>
+                                    <div class="target-preview" id="targetPreview"></div>
+                                    <div class="form-text mt-2">
+                                        <i class="fas fa-lightbulb me-1"></i>提示: 多个目标用逗号分隔，支持CIDRnotation (如 192.168.1.0/24)
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold">快速预设</label>
+                                    <div class="preset-tags">
+                                        <span class="preset-tag active" data-preset="quick" data-bs-toggle="tooltip" data-bs-placement="bottom" title="快速探测Top 100端口，适合日常巡检，耗时短">
+                                            <span class="preset-icon">⚡</span>快速扫描
+                                        </span>
+                                        <span class="preset-tag" data-preset="deep" data-bs-toggle="tooltip" data-bs-placement="bottom" title="扫描全部65535个端口，全面发现服务，适合深度探测">
+                                            <span class="preset-icon">🔍</span>全端口扫描
+                                        </span>
+                                        <span class="preset-tag" data-preset="service" data-bs-toggle="tooltip" data-bs-placement="bottom" title="识别服务版本信息(-sV)，了解运行服务详情">
+                                            <span class="preset-icon">🛠️</span>服务识别
+                                        </span>
+                                        <span class="preset-tag" data-preset="vuln" data-bs-toggle="tooltip" data-bs-placement="bottom" title="启用漏洞+Web+SSL检测脚本，扫描常见安全漏洞">
+                                            <span class="preset-icon">🔐</span>漏洞扫描
+                                        </span>
+                                        <span class="preset-tag" data-preset="web" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Web服务专项扫描：指纹识别、目录探测、SSL证书检测">
+                                            <span class="preset-icon">🌐</span>Web扫描
+                                        </span>
+                                        <span class="preset-tag" data-preset="stealth" data-bs-toggle="tooltip" data-bs-placement="bottom" title="低速扫描，跳过主机发现，适合需要隐蔽的场景">
+                                            <span class="preset-icon">👤</span>隐蔽扫描
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="scan" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="id_scan_type" class="form-label fw-semibold">
+                                                扫描类型
+                                                <i class="fas fa-info-circle info-tooltip" data-bs-toggle="tooltip" title="选择扫描深度和覆盖范围"></i>
+                                            </label>
+                                            <select class="form-select" id="id_scan_type" name="scan_type">
+                                                <option value="quick" selected>快速扫描 (Top 100 端口)</option>
+                                                <option value="normal">标准扫描 (Top 1000 端口)</option>
+                                                <option value="deep">深度扫描 (全端口)</option>
+                                                <option value="service">服务版本探测</option>
+                                                <option value="vuln">漏洞扫描</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="id_ports" class="form-label fw-semibold">
+                                                自定义端口
+                                                <i class="fas fa-info-circle info-tooltip" data-bs-toggle="tooltip" title="留空使用扫描类型默认值"></i>
+                                            </label>
+                                            <input type="text" class="form-control" id="id_ports" name="ports" placeholder="例如: 80,443,8080-8090">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="section-title mt-4"><i class="fas fa-network-wired me-2"></i>协议与扫描方式</div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="config-item">
+                                            <label class="form-label fw-semibold">启用协议</label>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" value="1" id="id_enable_tcp" name="enable_tcp" checked>
+                                                <label class="form-check-label" for="id_enable_tcp">
+                                                    <i class="fab fa-linux me-1"></i>TCP 扫描
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="1" id="id_enable_udp" name="enable_udp">
+                                                <label class="form-check-label" for="id_enable_udp">
+                                                    <i class="fas fa-envelope me-1"></i>UDP 扫描
+                                                    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7rem;">较慢</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="config-item">
+                                            <label for="id_tcp_scan" class="form-label fw-semibold">TCP 扫描方式</label>
+                                            <select class="form-select" id="id_tcp_scan" name="tcp_scan">
+                                                <option value="SYN" selected>SYN 扫描 (-sS) <span class="text-muted">半开扫描，速度快</span></option>
+                                                <option value="CONNECT">TCP 连接扫描 (-sT) <span class="text-muted">完整连接</span></option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="section-title mt-4"><i class="fas fa-radar me-2"></i>主机发现</div>
+                                
+                                <div class="config-item">
+                                    <label for="id_host_discovery" class="form-label fw-semibold">
+                                        发现方式
+                                        <i class="fas fa-info-circle info-tooltip" data-bs-toggle="tooltip" title="除'默认方式'外，其他方式都会通过ARP获取MAC地址和厂商信息"></i>
+                                    </label>
+                                    <select class="form-select" id="id_host_discovery" name="host_discovery">
+                                        <option value="DEFAULT" selected>默认方式</option>
+                                        <option value="PING_ONLY">仅主机发现 (-sn) 可获取MAC</option>
+                                        <option value="ICMP">ICMP 探测 (-PE -PP -PR)</option>
+                                        <option value="NO_PING">跳过主机发现 (-Pn -PR)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="advanced" role="tabpanel">
+                                {% csrf_token %}
+                                {{ form.non_field_errors }}
+                                <div class="row g-4">
+                                    <div class="col-12">
+                                        <div class="config-section">
+                                            <div class="section-title"><i class="fas fa-sliders-h me-2"></i>高级选项</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="section-title"><i class="fas fa-tachometer-alt me-2"></i>扫描速度</div>
+                                
+                                <div class="config-item mb-4">
+                                    <label class="form-label fw-semibold">
+                                        Timing 模板 <span id="timingValue" class="badge bg-primary ms-2">-T4</span>
+                                        <i class="fas fa-info-circle info-tooltip" data-bs-toggle="tooltip" title="T0(最慢) - T5(最快)，生产环境建议T4"></i>
+                                    </label>
+                                    <input type="range" class="timing-slider" id="id_timing" name="timing" min="0" max="5" value="4">
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <small class="text-muted">T0 paranoid</small>
+                                        <small class="text-muted">T3 normal</small>
+                                        <small class="text-muted">T5 insane</small>
+                                    </div>
+                                </div>
+
+                                <div class="section-title"><i class="fas fa-code me-2"></i>NSE 脚本</div>
+                                
+                                <div class="config-item mb-3">
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" value="1" id="id_use_scripts" name="use_scripts">
+                                        <label class="form-check-label fw-semibold" for="id_use_scripts">
+                                            启用 NSE 脚本扫描
+                                        </label>
+                                    </div>
+                                    <div id="scriptCategoriesSection" style="display: none;">
+                                        <label class="form-label fw-semibold">脚本类别</label>
+                                        <div class="script-category-list">
+                                            <span class="script-category-badge selected" data-category="default" data-bs-toggle="tooltip" title="默认脚本集，适合快速扫描">default</span>
+                                            <span class="script-category-badge" data-category="safe" data-bs-toggle="tooltip" title="安全脚本，不会对目标造成损害">safe</span>
+                                            <span class="script-category-badge" data-category="vuln" data-bs-toggle="tooltip" title="漏洞检测脚本，检测常见安全漏洞">vuln</span>
+                                            <span class="script-category-badge" data-category="auth" data-bs-toggle="tooltip" title="认证检测脚本，检测弱口令">auth</span>
+                                            <span class="script-category-badge" data-category="brute" data-bs-toggle="tooltip" title="暴力破解脚本，检测弱口令">brute</span>
+                                            <span class="script-category-badge" data-category="discovery" data-bs-toggle="tooltip" title="信息发现脚本，收集更多信息">discovery</span>
+                                            <span class="script-category-badge" data-category="exploit" data-bs-toggle="tooltip" title="漏洞利用脚本（仅用于授权安全测试）">exploit</span>
+                                            <span class="script-category-badge" data-category="http" data-bs-toggle="tooltip" title="Web服务指纹识别、目录扫描">http</span>
+                                            <span class="script-category-badge" data-category="ssl" data-bs-toggle="tooltip" title="SSL/TLS证书和配置检测">ssl</span>
+                                            <span class="script-category-badge" data-category="mysql" data-bs-toggle="tooltip" title="MySQL数据库检测">mysql</span>
+                                            <span class="script-category-badge" data-category="redis" data-bs-toggle="tooltip" title="Redis数据库检测">redis</span>
+                                            <span class="script-category-badge" data-category="mongodb" data-bs-toggle="tooltip" title="MongoDB数据库检测">mongodb</span>
+                                            <span class="script-category-badge" data-category="postgres" data-bs-toggle="tooltip" title="PostgreSQL数据库检测">postgres</span>
+                                            <span class="script-category-badge" data-category="ssh" data-bs-toggle="tooltip" title="SSH服务检测">ssh</span>
+                                            <span class="script-category-badge" data-category="ftp" data-bs-toggle="tooltip" title="FTP服务检测">ftp</span>
+                                            <span class="script-category-badge" data-category="smb" data-bs-toggle="tooltip" title="SMB/Windows共享检测">smb</span>
+                                        </div>
+                                        <input type="hidden" id="id_script_categories" name="script_categories" value="default">
+                                        <div class="form-text mt-2">
+                                            <i class="fas fa-info-circle me-1"></i>选择要运行的脚本类别，多选
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="section-title mt-4"><i class="fas fa-flask me-2"></i>其他选项</div>
+                                
+                                <div class="config-item">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="id_no_reverse" name="no_reverse">
+                                        <label class="form-check-label" for="id_no_reverse">跳过反向DNS解析 (-n)</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card mb-4 sticky-top" style="top: 1rem; z-index: 1;">
+                    <div class="card-header bg-transparent">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>扫描摘要</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <div class="bg-primary bg-opacity-25 p-3 rounded">
+                                    <i class="fas fa-bullseye text-primary fs-4"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">目标</small>
+                                <span id="summaryTarget" class="fw-semibold">未指定</span>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <div class="bg-info bg-opacity-25 p-3 rounded">
+                                    <i class="fas fa-filter text-info fs-4"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">扫描类型</small>
+                                <span id="summaryScanType" class="fw-semibold">快速扫描</span>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <div class="bg-success bg-opacity-25 p-3 rounded">
+                                    <i class="fas fa-network-wired text-success fs-4"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">协议</small>
+                                <span id="summaryProtocol" class="fw-semibold">TCP</span>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-3 mb-0">
+                            <small><i class="fas fa-info-circle me-1"></i> 扫描任务将在提交后立即开始执行</small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-rocket me-2"></i>开始扫描
+                            </button>
+                            <a href="{% url 'task_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>取消
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    const targetInput = document.getElementById('id_target');
+    const targetPreview = document.getElementById('targetPreview');
+    const scanTypeSelect = document.getElementById('id_scan_type');
+    const enableTcp = document.getElementById('id_enable_tcp');
+    const enableUdp = document.getElementById('id_enable_udp');
+    const useScripts = document.getElementById('id_use_scripts');
+    const scriptSection = document.getElementById('scriptCategoriesSection');
+    const timingSlider = document.getElementById('id_timing');
+    const timingValue = document.getElementById('timingValue');
+    const scriptCategoriesInput = document.getElementById('id_script_categories');
+
+    function validateTarget(target) {
+        const patterns = [
+            /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/,
+            /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/,
+        ];
+        
+        const targets = target.split(',').map(t => t.trim()).filter(t => t);
+        let valid = true;
+        let messages = [];
+        
+        targets.forEach(t => {
+            let matched = false;
+            for (const pattern of patterns) {
+                if (pattern.test(t)) {
+                    matched = true;
+                    
+                    if (t.includes('/')) {
+                        const [ip, mask] = t.split('/');
+                        const parts = ip.split('.').map(Number);
+                        if (parts.some(p => p > 255) || mask < 24 || mask > 32) {
+                            valid = false;
+                            messages.push(`网段 ${t} 无效`);
+                        }
+                    } else if (t.match(/^\d{1,3}(\.\d{1,3}){3}$/)) {
+                        const parts = t.split('.').map(Number);
+                        if (parts.some(p => p > 255)) {
+                            valid = false;
+                            messages.push(`IP ${t} 无效`);
+                        }
+                    }
+                    break;
+                }
+            }
+            if (!matched) {
+                valid = false;
+                messages.push(`目标 ${t} 格式不正确`);
+            }
+        });
+        
+        return { valid, messages: messages.join('; ') || '目标格式正确' };
+    }
+
+    targetInput.addEventListener('input', updateSummary);
+    document.getElementById('validateTargetBtn').addEventListener('click', function() {
+        const result = validateTarget(targetInput.value);
+        targetPreview.textContent = result.messages;
+        targetPreview.className = 'target-preview ' + (result.valid ? 'valid' : 'invalid');
+    });
+
+    function updateSummary() {
+        const target = targetInput.value || '未指定';
+        document.getElementById('summaryTarget').textContent = target.length > 20 ? target.substring(0, 20) + '...' : target;
+        
+        const scanTypes = {
+            'quick': '快速扫描',
+            'normal': '标准扫描',
+            'deep': '深度扫描',
+            'service': '服务探测',
+            'vuln': '漏洞扫描'
+        };
+        document.getElementById('summaryScanType').textContent = scanTypes[scanTypeSelect.value] || '快速扫描';
+        
+        let protocols = [];
+        if (enableTcp.checked) protocols.push('TCP');
+        if (enableUdp.checked) protocols.push('UDP');
+        document.getElementById('summaryProtocol').textContent = protocols.length > 0 ? protocols.join(', ') : '未选择';
+    }
+
+    scanTypeSelect.addEventListener('change', updateSummary);
+    enableTcp.addEventListener('change', updateSummary);
+    enableUdp.addEventListener('change', updateSummary);
+
+    const presets = {
+        'quick': { scan_type: 'quick', ports: '', enable_tcp: true, enable_udp: false, timing: 4 },
+        'normal': { scan_type: 'normal', ports: '', enable_tcp: true, enable_udp: false, timing: 3 },
+        'deep': { scan_type: 'deep', ports: '', enable_tcp: true, enable_udp: true, timing: 2 },
+        'service': { scan_type: 'service', ports: '', enable_tcp: true, enable_udp: false, timing: 3 },
+        'vuln': { scan_type: 'vuln', ports: '', enable_tcp: true, enable_udp: false, use_scripts: true, script_categories: 'vuln,exploit,auth', timing: 3 },
+        'web': { scan_type: 'service', ports: '80,443,8080,8443', enable_tcp: true, enable_udp: false, use_scripts: true, script_categories: 'http,ssl,vuln', timing: 4 },
+        'stealth': { scan_type: 'normal', ports: '80,443,22,3389', enable_tcp: true, enable_udp: false, timing: 1, host_discovery: 'NO_PING' }
+    };
+
+    document.querySelectorAll('.preset-tag').forEach(tag => {
+        tag.addEventListener('click', function() {
+            document.querySelectorAll('.preset-tag').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            const preset = presets[this.dataset.preset];
+            if (preset) {
+                scanTypeSelect.value = preset.scan_type || 'quick';
+                document.getElementById('id_ports').value = preset.ports || '';
+                document.getElementById('id_enable_tcp').checked = preset.enable_tcp !== false;
+                document.getElementById('id_enable_udp').checked = preset.enable_udp || false;
+                document.getElementById('id_timing').value = preset.timing || 4;
+                timingValue.textContent = '-T' + (preset.timing || 4);
+                
+                if (preset.use_scripts) {
+                    useScripts.checked = true;
+                    scriptSection.style.display = 'block';
+                }
+                if (preset.host_discovery) {
+                    document.getElementById('id_host_discovery').value = preset.host_discovery;
+                }
+                
+                if (preset.script_categories) {
+                    const categories = preset.script_categories.split(',');
+                    scriptCategoriesInput.value = preset.script_categories;
+                    document.querySelectorAll('.script-category-badge').forEach(badge => {
+                        badge.classList.toggle('selected', categories.includes(badge.dataset.category));
+                    });
+                    useScripts.checked = true;
+                    scriptSection.style.display = 'block';
+                }
+            }
+            updateSummary();
+        });
+    });
+
+    useScripts.addEventListener('change', function() {
+        scriptSection.style.display = this.checked ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('.script-category-badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+            this.classList.toggle('selected');
+            const selected = Array.from(document.querySelectorAll('.script-category-badge.selected'))
+                .map(b => b.dataset.category).join(',');
+            scriptCategoriesInput.value = selected;
+        });
+    });
+
+    timingSlider.addEventListener('input', function() {
+        timingValue.textContent = '-T' + this.value;
+    });
+
+    const form = document.getElementById('scanForm');
+    form.addEventListener('submit', function(e) {
+        const target = targetInput.value.trim();
+        if (!target) {
+            e.preventDefault();
+            alert('请输入扫描目标');
+            targetInput.focus();
+            return;
+        }
+        
+        const result = validateTarget(target);
+        if (!result.valid) {
+            if (!confirm('目标格式可能有误，是否继续提交？\n' + result.messages)) {
+                e.preventDefault();
+                return;
+            }
+        }
+    });
+
+    updateSummary();
+});
+</script>
+{% endblock %}

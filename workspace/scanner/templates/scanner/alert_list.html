@@ -1,0 +1,169 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}告警与异常中心{% endblock %}
+
+{% block content %}
+<div class="card mb-4 shadow-sm border-0 bg-glass">
+    <div class="card-header border-bottom border-color"><i class="fas fa-filter me-2 text-danger"></i>告警中心高级筛选</div>
+    <div class="card-body py-3">
+        <form method="get" class="row g-3 align-items-end" id="filterForm">
+            <div class="col-md-4">
+                <label class="small text-muted mb-2 fw-medium">告警阅读状态</label>
+                <select name="read_status" class="form-select form-select-sm border-color bg-dark bg-opacity-50" onchange="this.form.submit()">
+                    <option value="" {% if not request.GET.read_status %}selected{% endif %}>全部告警 (All)</option>
+                    <option value="unread" {% if request.GET.read_status == 'unread' %}selected{% endif %}>未读告警 (Unread)</option>
+                    <option value="read" {% if request.GET.read_status == 'read' %}selected{% endif %}>已读记录 (Read)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="small text-muted mb-2 fw-medium">安全风险等级</label>
+                <select name="severity" class="form-select form-select-sm border-color bg-dark bg-opacity-50" onchange="this.form.submit()">
+                    <option value="">全部风险级别</option>
+                    <option value="LOW" {% if request.GET.severity == 'LOW' %}selected{% endif %}>提示 (Low)</option>
+                    <option value="MEDIUM" {% if request.GET.severity == 'MEDIUM' %}selected{% endif %}>一般 (Medium)</option>
+                    <option value="HIGH" {% if request.GET.severity == 'HIGH' %}selected{% endif %}>重要 (High)</option>
+                    <option value="CRITICAL" {% if request.GET.severity == 'CRITICAL' %}selected{% endif %}>紧急 (Critical)</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <a href="{% url 'alert_list' %}" class="btn btn-sm btn-link text-muted p-0 mb-1">重置</a>
+            </div>
+            <div class="col-md-3 text-end">
+                <form method="post" action="{% url 'alert_mark_all_read' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-info border-color">
+                        <i class="fas fa-check-double me-1"></i> 全部标记已读
+                    </button>
+                </form>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-dark">
+            <tr class="smaller text-uppercase text-muted">
+                <th class="ps-4">发现时间</th>
+                <th>告警类别</th>
+                <th>风险等级</th>
+                <th>受影响资产</th>
+                <th>告警内容摘要</th>
+                <th class="text-end pe-4">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr class="{% if alert.status == 'UNREAD' %}bg-danger bg-opacity-5 fw-bold{% endif %}">
+                <td class="ps-4"><small class="text-muted">{{ alert.timestamp|date:"Y-m-d H:i" }}</small></td>
+                <td>
+                    <span class="badge bg-secondary bg-opacity-10 text-muted border border-color">{{ alert.get_alert_type_display }}</span>
+                </td>
+                <td>
+                    <span class="badge bg-{% if alert.severity == 'CRITICAL' %}dark{% elif alert.severity == 'HIGH' %}danger{% elif alert.severity == 'MEDIUM' %}warning{% else %}info{% endif %}">
+                        <i class="fas fa-triangle-exclamation me-1 small"></i>{{ alert.get_severity_display }}
+                    </span>
+                </td>
+                <td>
+                    {% if alert.asset %}
+                        <a href="{% url 'asset_detail' alert.asset.id %}" class="text-decoration-none fw-bold"><i class="fas fa-server me-1 small"></i>{{ alert.asset.ip_address }}</a>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="text-truncate text-white-50 small clickable-detail" 
+                         style="max-width: 400px; cursor: pointer;" 
+                         data-bs-toggle="modal" 
+                         data-bs-target="#alertModal{{ alert.id }}"
+                         title="点击查看详情">
+                        <span class="text-white fw-medium">{{ alert.title }}</span>
+                    </div>
+
+                    <!-- 告警详情模态框 -->
+                    <div class="modal fade" id="alertModal{{ alert.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content bg-dark border-color shadow-lg">
+                                <div class="modal-header border-bottom border-color">
+                                    <h5 class="modal-title text-white">告警详细信息</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body py-4">
+                                    <div class="mb-3">
+                                        <label class="smaller text-muted text-uppercase fw-bold">告警标题</label>
+                                        <div class="text-white fs-6 mt-1">{{ alert.title }}</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="smaller text-muted text-uppercase fw-bold">告警内容</label>
+                                        <div class="text-white-50 mt-1" style="white-space: pre-wrap;">{{ alert.content }}</div>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <label class="smaller text-muted text-uppercase fw-bold">发现时间</label>
+                                            <div class="text-white-50 mt-1">{{ alert.timestamp|date:"Y-m-d H:i:s" }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="smaller text-muted text-uppercase fw-bold">风险等级</label>
+                                            <div class="mt-1">
+                                                <span class="badge bg-{% if alert.severity == 'CRITICAL' %}dark{% elif alert.severity == 'HIGH' %}danger{% elif alert.severity == 'MEDIUM' %}warning{% else %}info{% endif %}">
+                                                    {{ alert.get_severity_display }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer border-top border-color py-2">
+                                    {% if alert.status == 'UNREAD' %}
+                                        <form method="post" action="{% url 'alert_mark_read' alert.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-primary">标记并关闭</button>
+                                        </form>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-modal="dismiss">关闭</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end pe-4">
+                    {% if alert.status == 'UNREAD' %}
+                        <form method="post" action="{% url 'alert_mark_read' alert.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-xs btn-outline-info border-color px-2 py-1" title="标记已读">
+                                <i class="fas fa-check me-1"></i> 已读
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="text-muted smaller"><i class="fas fa-check-double me-1"></i>已处理</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center py-5 text-muted">暂无符合条件的告警数据</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .border-color { border-color: rgba(255, 255, 255, 0.08) !important; }
+    .smaller { font-size: 0.75rem; }
+    .bg-glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+    .clickable-detail:hover span { color: var(--accent-color) !important; text-decoration: underline; }
+</style>
+    
+    {% if is_paginated %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&read_status={{ request.GET.read_status }}&severity={{ request.GET.severity }}">上一页</a></li>
+            {% endif %}
+            <li class="page-item disabled"><a class="page-link" href="#">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</a></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&read_status={{ request.GET.read_status }}&severity={{ request.GET.severity }}">下一页</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

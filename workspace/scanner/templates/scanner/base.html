@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetAssetProbe - 网络资产探测系统</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+    <style>
+        :root {
+            --dark-bg: #0a0a0a;
+            --card-bg: rgba(30, 30, 30, 0.6);
+            --sidebar-bg: #111111;
+            --accent-color: #0d6efd;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: .9rem; 
+            background-color: var(--dark-bg);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* 顶部进度条 */
+        #nprogress { pointer-events: none; }
+        #nprogress .bar { background: var(--accent-color); position: fixed; z-index: 1031; top: 0; left: 0; width: 100%; height: 2px; }
+
+        /* 侧边栏优化 */
+        .sidebar { 
+            position: fixed; 
+            top: 0; bottom: 0; left: 0; 
+            z-index: 100; 
+            padding: 0;
+            width: 240px;
+            background-color: var(--sidebar-bg) !important;
+            border-right: 1px solid var(--border-color);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-sticky { 
+            position: relative; 
+            top: 0; height: 100vh; 
+            padding-top: 0; 
+            overflow-x: hidden; overflow-y: auto; 
+        }
+
+        .brand-wrapper {
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .mode-indicator {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 0.25rem;
+            opacity: 0.9;
+            text-align: center;
+        }
+
+        .navbar-brand { 
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #fff !important;
+            font-size: 1.25rem;
+            padding: 0; margin: 0;
+        }
+
+        .nav-section-title {
+            padding: 0.5rem 1.5rem;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .nav-link { 
+            font-weight: 500; 
+            color: var(--text-muted); 
+            padding: 0.75rem 1.5rem;
+            margin: 0.2rem 0.75rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-link i { font-size: 1.1rem; width: 24px; transition: transform 0.2s ease; }
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #fff;
+        }
+        .nav-link:hover i { transform: translateX(3px); }
+        
+        .nav-link.active { 
+            color: #fff; 
+            background-color: rgba(13, 110, 253, 0.15);
+            box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.3);
+        }
+        .nav-link.active i { color: var(--accent-color); }
+
+        /* 主内容区 */
+        main {
+            margin-left: 240px;
+            padding: 2rem !important;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* 玻璃拟态卡片 */
+        .card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            background-color: transparent;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* 状态标签优化 */
+        .badge {
+            padding: 0.4em 0.7em;
+            font-weight: 600;
+            border-radius: 6px;
+        }
+
+        /* 代码与单宽字体 */
+        code, pre {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            main { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="nprogress"><div class="bar"></div></div>
+
+    <nav id="sidebarMenu" class="sidebar">
+        <div class="sidebar-sticky">
+            <div class="brand-wrapper">
+                <a class="navbar-brand" href="/">
+                    <i class="fas fa-shield-halved me-2 text-primary"></i>NetAssetProbe
+                </a>
+                {% if simulation_mode %}
+                    <small class="mode-indicator text-warning"><i class="fas fa-flask me-1"></i>模拟模式</small>
+                {% else %}
+                    <small class="mode-indicator text-success"><i class="fas fa-check-circle me-1"></i>真实探测</small>
+                {% endif %}
+            </div>
+
+            <div class="nav-section-title">核心功能</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                        <i class="fas fa-grid-2 me-2"></i> 首页概览
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'task' in request.resolver_match.url_name and 'scheduled' not in request.resolver_match.url_name %}active{% endif %}" href="{% url 'task_list' %}">
+                        <i class="fas fa-layer-group me-2"></i> 扫描任务
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'scheduled' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'scheduled_task_list' %}">
+                        <i class="fas fa-clock me-2"></i> 定时任务
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'asset' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'asset_list' %}">
+                        <i class="fas fa-database me-2"></i> 资产台账
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'topology' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'topology' %}">
+                        <i class="fas fa-diagram-project me-2"></i> 网络拓扑
+                    </a>
+                </li>
+            </ul>
+
+            <div class="nav-section-title mt-4">监测与告警</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {% if 'passive' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'passive_event_list' %}">
+                        <i class="fas fa-microscope me-2"></i> 被动探测
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if 'alert' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'alert_list' %}">
+                        <i class="fas fa-bolt-lightning me-2"></i> 告警中心
+                        {% if unread_alerts_count %}
+                            <span class="badge rounded-pill bg-danger ms-auto">{{ unread_alerts_count }}</span>
+                        {% endif %}
+                    </a>
+              </ul>
+        </div>
+    </nav>
+
+    <main>
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <h1 class="h3 fw-bold mb-0">{% block title %}{% endblock %}</h1>
+            {% if simulation_mode %}
+                <span class="badge bg-warning text-dark animate-pulse"><i class="fas fa-flask me-1"></i>模拟模式已开启 (非真实数据)</span>
+            {% endif %}
+            <div class="btn-toolbar mb-3">
+                {% block toolbar %}{% endblock %}
+            </div>
+        </div>
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show border-0 shadow-sm mb-4" role="alert" style="background: rgba(var(--bs-{{ message.tags }}-rgb), 0.1); color: var(--bs-{{ message.tags }});">
+                    <i class="fas fa-circle-info me-2"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 模拟加载进度条
+        window.addEventListener('load', function() {
+            const bar = document.querySelector('#nprogress .bar');
+            bar.style.width = '100%';
+            setTimeout(() => {
+                document.getElementById('nprogress').style.opacity = '0';
+            }, 200);
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

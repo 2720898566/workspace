@@ -1,0 +1,125 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}报告详情: {{ report.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h4><i class="fas fa-file-alt me-2"></i>{{ report.name }}</h4>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12 text-end">
+        <a href="{% url 'report_download' report.id %}" class="btn btn-primary"><i class="fas fa-download"></i> 下载报告</a>
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">返回首页</a>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ report.asset_count }}</h3>
+                <p class="text-muted mb-0">资产数量</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-danger">{{ report.vuln_count }}</h3>
+                <p class="text-muted mb-0">漏洞总数</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-danger">{{ report.high_vuln_count }}</h3>
+                <p class="text-muted mb-0">高危</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 text-warning>{{ report.medium_vuln_count }}</h3>
+                <p class="text-muted mb-0">中危</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">{{ report.low_vuln_count }}</h3>
+                <p class="text-muted mb-0">低危</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">报告摘要</h6>
+            </div>
+            <div class="card-body">
+                <p>{{ report.summary }}</p>
+                <p class="text-muted small">生成时间: {{ report.created_at|date:"Y-m-d H:i:s" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">资产列表 (前100条)</h6>
+            </div>
+            <div class="card-body table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>主机名</th>
+                            <th>操作系统</th>
+                            <th>厂商</th>
+                            <th>端口/服务</th>
+                            <th>漏洞</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in report.content.assets %}
+                        <tr>
+                            <td>{{ asset.ip }}</td>
+                            <td>{{ asset.hostname|default:"-" }}</td>
+                            <td>{{ asset.os|default:"-" }}</td>
+                            <td>{{ asset.vendor|default:"-" }}</td>
+                            <td>
+                                {% for port in asset.ports %}
+                                <span class="badge bg-secondary me-1">{{ port.0 }}/{{ port.1 }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for vuln in asset.vulns %}
+                                <span class="badge bg-{% if vuln.severity == 'HIGH' %}danger{% elif vuln.severity == 'MEDIUM' %}warning{% else %}info{% endif %} me-1">
+                                    {{ vuln.name }}
+                                </span>
+                                {% empty %}
+                                <span class="text-muted">-</span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6">暂无数据</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

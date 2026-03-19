@@ -1,0 +1,135 @@
+{% extends 'scanner/base.html' %}
+
+{% block title %}定时任务详情 - {{ scheduled_task.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-clock me-2"></i>定时任务详情</h4>
+        <div>
+            <a href="{% url 'scheduled_task_list' %}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+            <a href="{% url 'scheduled_task_toggle' scheduled_task.id %}" class="btn btn-warning btn-sm">
+                <i class="fas fa-pause me-1"></i>{% if scheduled_task.status == 'ACTIVE' %}暂停{% else %}启用{% endif %}
+            </a>
+            <a href="{% url 'scheduled_task_run_now' scheduled_task.id %}" class="btn btn-primary btn-sm">
+                <i class="fas fa-play me-1"></i>立即执行
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-2"></i>基本信息
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="150">任务名称</th>
+                            <td>{{ scheduled_task.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>扫描目标</th>
+                            <td><code>{{ scheduled_task.target }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>扫描类型</th>
+                            <td>{{ scheduled_task.get_scan_type_display|default:scheduled_task.scan_type }}</td>
+                        </tr>
+                        <tr>
+                            <th>端口范围</th>
+                            <td>{{ scheduled_task.ports|default:"默认" }}</td>
+                        </tr>
+                        <tr>
+                            <th>状态</th>
+                            <td>
+                                {% if scheduled_task.status == 'ACTIVE' %}
+                                <span class="badge bg-success">启用</span>
+                                {% else %}
+                                <span class="badge bg-secondary">暂停</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-calendar-alt me-2"></i>调度信息
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th width="150">执行间隔</th>
+                            <td>
+                                {% if scheduled_task.interval_type == 'MINUTES' %}
+                                    每 {{ scheduled_task.interval_value }} 分钟
+                                {% elif scheduled_task.interval_type == 'HOURS' %}
+                                    每 {{ scheduled_task.interval_value }} 小时
+                                {% elif scheduled_task.interval_type == 'DAILY' %}
+                                    每 {{ scheduled_task.interval_value }} 天
+                                {% elif scheduled_task.interval_type == 'WEEKLY' %}
+                                    每1周
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>指定时间</th>
+                            <td>{{ scheduled_task.specific_time|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>上次执行</th>
+                            <td>{{ scheduled_task.last_run|default:"从未" }}</td>
+                        </tr>
+                        <tr>
+                            <th>下次执行</th>
+                            <td>{{ scheduled_task.next_run|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>总执行次数</th>
+                            <td>{{ scheduled_task.total_runs|default:0 }}</td>
+                        </tr>
+                        <tr>
+                            <th>创建时间</th>
+                            <td>{{ scheduled_task.created_at }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="fas fa-cog me-2"></i>扫描选项
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>TCP扫描:</strong> {% if scheduled_task.enable_tcp %}启用{% else %}禁用{% endif %}
+                </div>
+                <div class="col-md-3">
+                    <strong>UDP扫描:</strong> {% if scheduled_task.enable_udp %}启用{% else %}禁用{% endif %}
+                </div>
+                <div class="col-md-3">
+                    <strong>主机发现:</strong> {{ scheduled_task.get_host_discovery_display|default:scheduled_task.host_discovery }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Timing:</strong> T{{ scheduled_task.timing|default:4 }}
+                </div>
+            </div>
+            {% if scheduled_task.use_scripts %}
+            <div class="mt-3">
+                <strong>NSE脚本:</strong> {{ scheduled_task.script_categories|default:"全部" }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
